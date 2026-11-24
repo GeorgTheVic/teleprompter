@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Teleprompter | Телесуфлёр</title>
+  
+  <!-- iOS Safari Web App & Mobile Meta -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Суфлёр">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#000000">
+
+  <style>
+    /* Reset & Base Variables */
+    :root {
+      --bg-color: #000000;
+      --text-color: #F2F2F2;
+      --accent-color: #0A84FF;
+      --accent-hover: #409CFF;
+      --danger-color: #FF453A;
+      --panel-bg: rgba(22, 22, 24, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.14);
+      --control-bg: rgba(255, 255, 255, 0.08);
+      --control-hover: rgba(255, 255, 255, 0.16);
+      --control-active: rgba(255, 255, 255, 0.24);
+      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --eyeline-pos: 28vh;
+      --safe-top: env(safe-area-inset-top, 20px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: var(--font-family);
+      overflow: hidden;
+      position: fixed;
+      touch-action: pan-y;
+      overscroll-behavior-y: none;
+    }
+
+    /* Screen Views */
+    .view {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.25s ease, visibility 0.25s;
+    }
+
+    .view.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* =========================================
+       1. EDITOR VIEW
+       ========================================= */
+    #editor-view {
+      padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 16px);
+      background-color: #000000;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      user-select: auto;
+      -webkit-user-select: auto;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .app-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-title span {
+      color: var(--accent-color);
+    }
+
+    .editor-stats {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .textarea-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+    }
+
+    #script-input {
+      width: 100%;
+      flex: 1;
+      min-height: 260px;
+      padding: 16px;
+      background: #111113;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      color: #FFFFFF;
+      font-family: var(--font-family);
+      font-size: 1.15rem;
+      line-height: 1.55;
+      resize: none;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+      transition: border-color 0.2s ease;
+    }
+
+    #script-input:focus {
+      border-color: var(--accent-color);
+    }
+
+    #script-input::placeholder {
+      color: rgba(255, 255, 255, 0.28);
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 13px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 13px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.2s, opacity 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-secondary {
+      background: var(--control-bg);
+      color: var(--text-color);
+      border-color: var(--panel-border);
+    }
+
+    .btn-secondary:active {
+      background: var(--control-active);
+    }
+
+    .btn-danger {
+      background: rgba(255, 69, 58, 0.14);
+      color: var(--danger-color);
+      border-color: rgba(255, 69, 58, 0.25);
+    }
+
+    .btn-danger:active {
+      background: rgba(255, 69, 58, 0.24);
+    }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: #FFFFFF;
+      flex: 1;
+      min-width: 180px;
+      box-shadow: 0 4px 18px rgba(10, 132, 255, 0.35);
+    }
+
+    .btn-primary:active {
+      background: var(--accent-hover);
+    }
+
+    /* Sample script banner */
+    .tips-box {
+      margin-top: 18px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    /* =========================================
+       2. PROMPTER VIEW
+       ========================================= */
+    #prompter-view {
+      background: #000000;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Scrollable Text Viewport */
+    #prompter-viewport {
+      width: 100%;
+      height: 100%;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: none;
+      scrollbar-width: none;
+      position: relative;
+    }
+
+    #prompter-viewport::-webkit-scrollbar {
+      display: none;
+    }
+
+    #prompter-content {
+      width: 90%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding-top: var(--eyeline-pos);
+      padding-bottom: 85vh;
+      color: var(--text-color);
+      font-weight: 600;
+      line-height: 1.5;
+      text-align: left;
+      word-wrap: break-word;
+      transition: transform 0.2s ease, width 0.15s ease;
+      cursor: pointer;
+    }
+
+    #prompter-content.mirrored {
+      transform: scaleX(-1);
+    }
+
+    #prompter-content p {
+      margin-bottom: 1.25em;
+    }
+
+    /* Eye-Line Focus Guide */
+    .eyeline-guide {
+      position: absolute;
+      top: var(--eyeline-pos);
+      left: 0;
+      right: 0;
+      height: 2px;
+      pointer-events: none;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      opacity: 0.85;
+      transition: opacity 0.3s ease;
+    }
+
+    .eyeline-guide.hidden {
+      opacity: 0;
+    }
+
+    .eyeline-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(10, 132, 255, 0) 0%, rgba(10, 132, 255, 0.4) 25%, rgba(10, 132, 255, 0.4) 75%, rgba(10, 132, 255, 0) 100%);
+    }
+
+    .eyeline-arrow-left,
+    .eyeline-arrow-right {
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      margin: 0 10px;
+      opacity: 0.75;
+    }
+
+    .eyeline-arrow-left {
+      border-left: 9px solid var(--accent-color);
+    }
+
+    .eyeline-arrow-right {
+      border-right: 9px solid var(--accent-color);
+    }
+
+    /* Countdown Overlay */
+    .countdown-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s;
+    }
+
+    .countdown-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .countdown-number {
+      font-size: 8rem;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-shadow: 0 0 35px var(--accent-color);
+      transform: scale(0.5);
+      animation: pulsePop 0.85s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    }
+
+    @keyframes pulsePop {
+      0% {
+        transform: scale(0.65);
+        opacity: 0.5;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 0.9;
+      }
+    }
+
+    /* Floating Status Indicator (When playing & controls hidden) */
+    .recording-dot {
+      position: absolute;
+      top: calc(var(--safe-top) + 10px);
+      right: calc(var(--safe-right) + 14px);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #34C759;
+      box-shadow: 0 0 10px #34C759;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .recording-dot.visible {
+      opacity: 0.7;
+    }
+
+    /* =========================================
+       3. PROMPTER CONTROLS & SETTINGS BAR
+       ========================================= */
+    .prompter-controls {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 12px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + 12px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-top: 1px solid var(--panel-border);
+      z-index: 50;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .prompter-controls.hidden {
+      transform: translateY(105%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Primary row: Big Play/Pause, Rewind, Edit, Settings Toggle */
+    .controls-main-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .icon-btn {
+      width: 46px;
+      height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 13px;
+      background: var(--control-bg);
+      border: 1px solid var(--panel-border);
+      color: #FFFFFF;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.12s;
+      flex-shrink: 0;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+      background: var(--control-active);
+    }
+
+    .icon-btn.active {
+      background: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+
+    .play-btn {
+      flex: 1;
+      height: 48px;
+      background: var(--accent-color);
+      border: none;
+      border-radius: 14px;
+      color: #FFFFFF;
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(10, 132, 255, 0.4);
+      cursor: pointer;
+      transition: transform 0.12s, background 0.15s;
+    }
+
+    .play-btn:active {
+      transform: scale(0.97);
+      background: var(--accent-hover);
+    }
+
+    .play-btn.paused {
+      background: #30D158;
+      box-shadow: 0 4px 16px rgba(48, 209, 88, 0.4);
+    }
+
+    /* Expandable Settings Drawer */
+    .settings-drawer {
+      max-width: 600px;
+      margin: 0 auto;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, margin-top 0.25s ease;
+    }
+
+    .settings-drawer.open {
+      max-height: 380px;
+      opacity: 1;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .setting-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      min-width: 110px;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .slider-step-btn {
+      width: 32px;
+      height: 32px;
+      background: var(--control-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      color: #FFFFFF;
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .slider-step-btn:active {
+      background: var(--control-active);
+    }
+
+    .custom-range {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .custom-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      cursor: pointer;
+    }
+
+    .setting-value {
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255, 255, 255, 0.9);
+      min-width: 44px;
+      text-align: right;
+    }
+
+    /* Segmented Controls (Countdown, Eyeline, Mirror) */
+    .segmented-control {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .segment-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 7px 6px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      text-align: center;
+    }
+
+    .segment-btn.active {
+      background: rgba(255, 255, 255, 0.22);
+      color: #FFFFFF;
+    }
+
+    /* Top Quick Status Bar (minimal) */
+    .prompter-top-nav {
+      position: absolute;
+      top: calc(var(--safe-top) + 8px);
+      left: calc(var(--safe-left) + 12px);
+      right: calc(var(--safe-right) + 12px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 40;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .prompter-top-nav.hidden {
+      opacity: 0;
+    }
+
+    .nav-pill {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .nav-pill:active {
+      background: var(--control-active);
+    }
+
+    /* Screen Wake Lock video fallback (invisible) */
+    #wake-lock-video {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0.001;
+      pointer-events: none;
+      bottom: 0;
+      left: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden dummy video for iOS Safari Wake Lock fallback -->
+  <video id="wake-lock-video" playsinline webkit-playsinline muted loop></video>
+
+  <!-- ========================================================
+       1. SCREEN: TEXT EDITOR & SCRIPT MANAGEMENT
+       ======================================================== -->
+  <main id="editor-view" class="view">
+    <header class="editor-header">
+      <div class="app-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="23 7 16 12 23 17 23 7"></polygon>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+        </svg>
+        Teleprompter <span>Pro</span>
+      </div>
+      <div id="stats-counter" class="editor-stats">0 слов · ~0:00</div>
+    </header>
+
+    <div class="textarea-wrapper">
+      <textarea id="script-input" placeholder="Вставьте сюда текст сценария или начните печатать...&#10;&#10;Совет: разбивайте текст на короткие абзацы — так его намного проще читать во время записи!"></textarea>
+    </div>
+
+    <div class="editor-actions">
+      <button id="paste-btn" class="btn btn-secondary" title="Вставить из буфера обмена">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+        </svg>
+        Вставить
+      </button>
+
+      <button id="clear-btn" class="btn btn-danger" title="Очистить поле ввода">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Очистить
+      </button>
+
+      <button id="launch-prompter-btn" class="btn btn-primary" title="Открыть суфлёр">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        В суфлёр
+      </button>
+    </div>
+
+    <aside class="tips-box">
+      💡 <strong>Как снимать на iPhone:</strong> Добавьте сайт «На экран Домой» через меню «Поделиться» в Safari. Закрепите телефон с суфлёром прямо под объективом основной камеры. Направляйте взгляд на синюю линию Eye-line.
+    </aside>
+  </main>
+
+  <!-- ========================================================
+       2. SCREEN: PROMPTER RUNNER
+       ======================================================== -->
+  <section id="prompter-view" class="view hidden">
+    <!-- Top quick buttons -->
+    <header id="top-nav" class="prompter-top-nav">
+      <button id="back-to-editor-btn" class="nav-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Редактор
+      </button>
+
+      <button id="restart-top-btn" class="nav-pill" title="В самое начало">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        В начало
+      </button>
+    </header>
+
+    <!-- Subtle Recording / Activity Dot -->
+    <div id="recording-dot" class="recording-dot"></div>
+
+    <!-- Eye-Line Horizontal Indicator -->
+    <div id="eyeline-guide" class="eyeline-guide">
+      <div class="eyeline-arrow-left"></div>
+      <div class="eyeline-line"></div>
+      <div class="eyeline-arrow-right"></div>
+    </div>
+
+    <!-- Countdown Modal Display -->
+    <div id="countdown-modal" class="countdown-overlay">
+      <div id="countdown-display" class="countdown-number">3</div>
+    </div>
+
+    <!-- Scrollable Propmter Surface -->
+    <div id="prompter-viewport">
+      <div id="prompter-content"></div>
+    </div>
+
+    <!-- Bottom Controls & Settings -->
+    <footer id="prompter-controls" class="prompter-controls">
+      <!-- Main Toolbar -->
+      <div class="controls-main-bar">
+        <button id="rewind-btn" class="icon-btn" title="Сбросить в начало">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 19 2 12 11 5 11 19"></polygon>
+            <polygon points="22 19 13 12 22 5 22 19"></polygon>
+          </svg>
+        </button>
+
+        <button id="toggle-play-btn" class="play-btn">
+          <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <svg id="pause-icon" style="display: none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          <span id="play-text">Старт</span>
+        </button>
+
+        <button id="settings-toggle-btn" class="icon-btn" title="Настройки">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Expandable Settings Section -->
+      <section id="settings-drawer" class="settings-drawer">
+        <!-- Speed -->
+        <div class="setting-row">
+          <span class="setting-label">Скорость</span>
+          <div class="slider-group">
+            <button id="speed-minus" class="slider-step-btn">−</button>
+            <input type="range" id="speed-slider" class="custom-range" min="10" max="250" step="5" value="65">
+            <button id="speed-plus" class="slider-step-btn">+</button>
+          </div>
+          <span id="speed-val" class="setting-value">65</span>
+        </div>
+
+        <!-- Font Size -->
+        <div class="setting-row">
+          <span class="setting-label">Шрифт</span>
+          <div class="slider-group">
+            <button id="font-minus" class="slider-step-btn">−</button>
+            <input type="range" id="font-slider" class="custom-range" min="24" max="96" step="2" value="44">
+            <button id="font-plus" class="slider-step-btn">+</button>
+          </div>
+          <span id="font-val" class="setting-value">44px</span>
+        </div>
+
+        <!-- Column Width / Margins -->
+        <div class="setting-row">
+          <span class="setting-label">Ширина</span>
+          <div class="slider-group">
+            <button id="width-minus" class="slider-step-btn">−</button>
+            <input type="range" id="width-slider" class="custom-range" min="40" max="98" step="2" value="84">
+            <button id="width-plus" class="slider-step-btn">+</button>
+          </div>
+          <span id="width-val" class="setting-value">84%</span>
+        </div>
+
+        <!-- Countdown Selector -->
+        <div class="setting-row">
+          <span class="setting-label">Отсчёт</span>
+          <div class="segmented-control" id="countdown-selector">
+            <button class="segment-btn" data-countdown="0">Выкл</button>
+            <button class="segment-btn active" data-countdown="3">3 сек</button>
+            <button class="segment-btn" data-countdown="5">5 сек</button>
+          </div>
+        </div>
+
+        <!-- Mirror & Eye-line switches -->
+        <div class="setting-row">
+          <span class="setting-label">Опции</span>
+          <div class="segmented-control">
+            <button id="mirror-btn" class="segment-btn">🪞 Зеркало</button>
+            <button id="eyeline-toggle-btn" class="segment-btn active">👁 Линия взгляда</button>
+          </div>
+        </div>
+      </section>
+    </footer>
+  </section>
+
+  <!-- ========================================================
+       APPLICATION LOGIC (ES Module / Vanilla JS without semicolons)
+       ======================================================== -->
+  <script type="module">
+    // Default sample text
+    const DEFAULT_SCRIPT = `Привет! Это твой идеальный телесуфлёр.
+
+Текст прокручивается абсолютно плавно благодаря связке requestAnimationFrame и субпиксельного аккумулятора.
+
+Ты можешь в любой момент коснуться экрана пальцем, чтобы поставить суфлёр на паузу и подправить позицию вверх или вниз.
+
+Синяя линия в верхней трети экрана помогает держать взгляд прямо на объективе камеры твоего смартфона.
+
+Нажми на значок шестерёнки внизу, чтобы настроить скорость, размер шрифта, отступы по краям или таймер обратного отсчёта.
+
+Удачных съёмок и уверенных дублей!`
+
+    const STORAGE_KEY = 'teleprompter_app_state_v1'
+
+    // State object
+    const state = {
+      text: DEFAULT_SCRIPT,
+      speed: 65,
+      fontSize: 44,
+      columnWidth: 84,
+      countdownSec: 3,
+      isMirrored: false,
+      showEyeline: true,
+      scrollPosition: 0,
+      isPlaying: false,
+      isCountingDown: false,
+      controlsVisible: true,
+      settingsOpen: false
+    }
+
+    // DOM Elements
+    const editorView = document.getElementById('editor-view')
+    const prompterView = document.getElementById('prompter-view')
+    const scriptInput = document.getElementById('script-input')
+    const statsCounter = document.getElementById('stats-counter')
+    const pasteBtn = document.getElementById('paste-btn')
+    const clearBtn = document.getElementById('clear-btn')
+    const launchPrompterBtn = document.getElementById('launch-prompter-btn')
+
+    const backToEditorBtn = document.getElementById('back-to-editor-btn')
+    const restartTopBtn = document.getElementById('restart-top-btn')
+    const rewindBtn = document.getElementById('rewind-btn')
+    const togglePlayBtn = document.getElementById('toggle-play-btn')
+    const playIcon = document.getElementById('play-icon')
+    const pauseIcon = document.getElementById('pause-icon')
+    const playText = document.getElementById('play-text')
+    const settingsToggleBtn = document.getElementById('settings-toggle-btn')
+    const settingsDrawer = document.getElementById('settings-drawer')
+    const prompterControls = document.getElementById('prompter-controls')
+    const topNav = document.getElementById('top-nav')
+    const recordingDot = document.getElementById('recording-dot')
+    const eyelineGuide = document.getElementById('eyeline-guide')
+    const countdownModal = document.getElementById('countdown-modal')
+    const countdownDisplay = document.getElementById('countdown-display')
+
+    const prompterViewport = document.getElementById('prompter-viewport')
+    const prompterContent = document.getElementById('prompter-content')
+    const wakeLockVideo = document.getElementById('wake-lock-video')
+
+    // Range controls
+    const speedSlider = document.getElementById('speed-slider')
+    const speedVal = document.getElementById('speed-val')
+    const speedMinus = document.getElementById('speed-minus')
+    const speedPlus = document.getElementById('speed-plus')
+
+    const fontSlider = document.getElementById('font-slider')
+    const fontVal = document.getElementById('font-val')
+    const fontMinus = document.getElementById('font-minus')
+    const fontPlus = document.getElementById('font-plus')
+
+    const widthSlider = document.getElementById('width-slider')
+    const widthVal = document.getElementById('width-val')
+    const widthMinus = document.getElementById('width-minus')
+    const widthPlus = document.getElementById('width-plus')
+
+    const countdownSelector = document.getElementById('countdown-selector')
+    const mirrorBtn = document.getElementById('mirror-btn')
+    const eyelineToggleBtn = document.getElementById('eyeline-toggle-btn')
+
+    // Animation & Smooth Scroll Engine Variables
+    let animationFrameId = null
+    let lastTimestamp = null
+    let currentScrollAccumulator = 0
+    let controlsHideTimeout = null
+    let wakeLockSentinel = null
+    let isUserDragging = false
+    let touchStartY = 0
+    let didMoveDuringTouch = false
+
+    // Initialize State from LocalStorage
+    const loadState = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          Object.assign(state, parsed)
+        }
+      } catch (err) {
+        console.warn('Could not read state from localStorage', err)
+      }
+    }
+
+    // Save State to LocalStorage (debounced)
+    let saveTimeout = null
+    const saveState = () => {
+      clearTimeout(saveTimeout)
+      saveTimeout = setTimeout(() => {
+        try {
+          const dataToSave = {
+            text: state.text,
+            speed: state.speed,
+            fontSize: state.fontSize,
+            columnWidth: state.columnWidth,
+            countdownSec: state.countdownSec,
+            isMirrored: state.isMirrored,
+            showEyeline: state.showEyeline,
+            scrollPosition: Math.round(prompterViewport.scrollTop)
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
+        } catch (err) {
+          console.warn('Could not save state to localStorage', err)
+        }
+      }, 150)
+    }
+
+    // Word count & Estimated speaking time
+    const updateStats = () => {
+      const text = scriptInput.value.trim()
+      const words = text ? text.split(/\s+/).filter(Boolean).length : 0
+      // Average speaking pace ~130 words per minute
+      const totalSeconds = Math.round((words / 130) * 60)
+      const minutes = Math.floor(totalSeconds / 60)
+      const seconds = totalSeconds % 60
+      const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
+      
+      const wordDeclension = (n) => {
+        const lastDigit = n % 10
+        const lastTwoDigits = n % 100
+        if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return 'слов'
+        if (lastDigit === 1) return 'слово'
+        if (lastDigit >= 2 && lastDigit <= 4) return 'слова'
+        return 'слов'
+      }
+
+      statsCounter.textContent = `${words} ${wordDeclension(words)} · ~${formattedTime}`
+    }
+
+    // Format text with paragraph tags for prompter
+    const renderPrompterText = () => {
+      const rawText = state.text || ''
+      if (!rawText.trim()) {
+        prompterContent.innerHTML = '<p style="color: rgba(255,255,255,0.4)">Текст сценария пуст. Вернитесь в редактор и добавьте текст.</p>'
+        return
+      }
+
+      const paragraphs = rawText.split(/\n+/)
+      prompterContent.innerHTML = paragraphs
+        .map(paragraph => `<p>${escapeHtml(paragraph)}</p>`)
+        .join('')
+    }
+
+    const escapeHtml = (str) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+    }
+
+    // Apply UI parameters
+    const applyPrompterStyles = () => {
+      prompterContent.style.fontSize = `${state.fontSize}px`
+      prompterContent.style.width = `${state.columnWidth}%`
+      
+      if (state.isMirrored) {
+        prompterContent.classList.add('mirrored')
+        mirrorBtn.classList.add('active')
+      } else {
+        prompterContent.classList.remove('mirrored')
+        mirrorBtn.classList.remove('active')
+      }
+
+      if (state.showEyeline) {
+        eyelineGuide.classList.remove('hidden')
+        eyelineToggleBtn.classList.add('active')
+      } else {
+        eyelineGuide.classList.add('hidden')
+        eyelineToggleBtn.classList.remove('active')
+      }
+
+      // Sync input values
+      speedSlider.value = state.speed
+      speedVal.textContent = state.speed
+
+      fontSlider.value = state.fontSize
+      fontVal.textContent = `${state.fontSize}px`
+
+      widthSlider.value = state.columnWidth
+      widthVal.textContent = `${state.columnWidth}%`
+
+      // Countdown segments
+      countdownSelector.querySelectorAll('.segment-btn').forEach(btn => {
+        if (parseInt(btn.dataset.countdown, 10) === state.countdownSec) {
+          btn.classList.add('active')
+        } else {
+          btn.classList.remove('active')
+        }
+      })
+    }
+
+    // Screen Wake Lock API + Dummy Video Fallback for Safari iOS
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && navigator.wakeLock.request) {
+          wakeLockSentinel = await navigator.wakeLock.request('screen')
+          wakeLockSentinel.addEventListener('release', () => {
+            wakeLockSentinel = null
+          })
+        }
+      } catch (err) {
+        console.warn('Wake Lock failed or rejected', err)
+      }
+
+      // Fallback: silent canvas loop stream or media playback
+      try {
+        if (!wakeLockVideo.srcObject) {
+          const canvas = document.createElement('canvas')
+          canvas.width = 16
+          canvas.height = 16
+          if (canvas.captureStream) {
+            wakeLockVideo.srcObject = canvas.captureStream(2)
+          }
+        }
+        wakeLockVideo.play().catch(() => {})
+      } catch (e) {
+        // Safe silence
+      }
+    }
+
+    const releaseWakeLock = () => {
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release().catch(() => {})
+        wakeLockSentinel = null
+      }
+      try {
+        wakeLockVideo.pause()
+      } catch (e) {}
+    }
+
+    // Re-request wake lock if visibility changes back to visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.isPlaying) {
+        requestWakeLock()
+      }
+    })
+
+    // Animation loop using requestAnimationFrame with fractional pixel accumulator
+    const prompterLoop = (timestamp) => {
+      if (!lastTimestamp) lastTimestamp = timestamp
+      const deltaTime = (timestamp - lastTimestamp) / 1000
+      lastTimestamp = timestamp
+
+      if (state.isPlaying && !isUserDragging) {
+        // Speed represents pixels per second
+        const deltaPixels = state.speed * deltaTime
+        currentScrollAccumulator += deltaPixels
+
+        if (currentScrollAccumulator >= 0.5) {
+          const pixelsToApply = Math.floor(currentScrollAccumulator)
+          prompterViewport.scrollTop += pixelsToApply
+          currentScrollAccumulator -= pixelsToApply
+
+          // Check if reached the end
+          const maxScroll = prompterViewport.scrollHeight - prompterViewport.clientHeight
+          if (prompterViewport.scrollTop >= maxScroll - 2) {
+            pausePrompter()
+            showControls()
+          }
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(prompterLoop)
+    }
+
+    const startPrompterLoop = () => {
+      lastTimestamp = performance.now()
+      currentScrollAccumulator = 0
+      if (!animationFrameId) {
+        animationFrameId = requestAnimationFrame(prompterLoop)
+      }
+    }
+
+    const stopPrompterLoop = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+      }
+      lastTimestamp = null
+      currentScrollAccumulator = 0
+    }
+
+    // Controls visibility helpers
+    const showControls = () => {
+      state.controlsVisible = true
+      prompterControls.classList.remove('hidden')
+      topNav.classList.remove('hidden')
+      recordingDot.classList.remove('visible')
+      clearTimeout(controlsHideTimeout)
+    }
+
+    const hideControls = () => {
+      if (!state.isPlaying || state.settingsOpen) return
+      state.controlsVisible = false
+      prompterControls.classList.add('hidden')
+      topNav.classList.add('hidden')
+      recordingDot.classList.add('visible')
+    }
+
+    const scheduleControlsHide = (delay = 2200) => {
+      clearTimeout(controlsHideTimeout)
+      if (state.isPlaying && !state.settingsOpen) {
+        controlsHideTimeout = setTimeout(hideControls, delay)
+      }
+    }
+
+    // Playback control
+    const startPrompter = () => {
+      if (state.isCountingDown) return
+
+      if (state.countdownSec > 0) {
+        runCountdown(state.countdownSec, () => {
+          beginScrolling()
+        })
+      } else {
+        beginScrolling()
+      }
+    }
+
+    const beginScrolling = () => {
+      state.isPlaying = true
+      togglePlayBtn.classList.add('paused')
+      playIcon.style.display = 'none'
+      pauseIcon.style.display = 'block'
+      playText.textContent = 'Пауза'
+
+      requestWakeLock()
+      startPrompterLoop()
+      scheduleControlsHide(1800)
+    }
+
+    const pausePrompter = () => {
+      state.isPlaying = false
+      togglePlayBtn.classList.remove('paused')
+      playIcon.style.display = 'block'
+      pauseIcon.style.display = 'none'
+      playText.textContent = 'Старт'
+
+      releaseWakeLock()
+      showControls()
+      saveState()
+    }
+
+    const togglePlay = () => {
+      if (state.isPlaying) {
+        pausePrompter()
+      } else {
+        startPrompter()
+      }
+    }
+
+    const rewindToTop = () => {
+      pausePrompter()
+      prompterViewport.scrollTo({ top: 0, behavior: 'smooth' })
+      state.scrollPosition = 0
+      saveState()
+    }
+
+    // Countdown logic
+    const runCountdown = (seconds, onFinish) => {
+      state.isCountingDown = true
+      countdownModal.classList.add('active')
+      let count = seconds
+      countdownDisplay.textContent = count
+
+      const timerInterval = setInterval(() => {
+        count--
+        if (count > 0) {
+          countdownDisplay.textContent = count
+        } else {
+          clearInterval(timerInterval)
+          countdownModal.classList.remove('active')
+          state.isCountingDown = false
+          onFinish()
+        }
+      }, 1000)
+    }
+
+    // Seamless touch & manual scroll synchronization
+    prompterViewport.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY
+      didMoveDuringTouch = false
+      isUserDragging = true
+      currentScrollAccumulator = 0
+    }, { passive: true })
+
+    prompterViewport.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY
+      if (Math.abs(currentY - touchStartY) > 6) {
+        didMoveDuringTouch = true
+      }
+    }, { passive: true })
+
+    prompterViewport.addEventListener('touchend', () => {
+      isUserDragging = false
+      lastTimestamp = performance.now()
+      currentScrollAccumulator = 0
+      saveState()
+    }, { passive: true })
+
+    // Tap on viewport toggles play/pause or controls
+    prompterViewport.addEventListener('click', (e) => {
+      if (didMoveDuringTouch) return
+      
+      if (state.isPlaying) {
+        pausePrompter()
+      } else {
+        if (!state.controlsVisible) {
+          showControls()
+        } else {
+          startPrompter()
+        }
+      }
+    })
+
+    // Keyboard support (Space to toggle, Escape to rewind/close settings)
+    window.addEventListener('keydown', (e) => {
+      if (prompterView.classList.contains('hidden')) return
+      
+      if (e.code === 'Space') {
+        e.preventDefault()
+        togglePlay()
+      } else if (e.code === 'ArrowUp') {
+        prompterViewport.scrollTop -= 60
+        saveState()
+      } else if (e.code === 'ArrowDown') {
+        prompterViewport.scrollTop += 60
+        saveState()
+      } else if (e.code === 'Escape') {
+        if (state.settingsOpen) {
+          toggleSettings()
+        } else {
+          pausePrompter()
+        }
+      }
+    })
+
+    // Screen Transitions
+    const switchToPrompter = () => {
+      state.text = scriptInput.value
+      saveState()
+      renderPrompterText()
+      applyPrompterStyles()
+
+      editorView.classList.add('hidden')
+      prompterView.classList.remove('hidden')
+      showControls()
+
+      // Restore scroll position
+      requestAnimationFrame(() => {
+        if (state.scrollPosition > 0) {
+          prompterViewport.scrollTop = state.scrollPosition
+        } else {
+          prompterViewport.scrollTop = 0
+        }
+      })
+    }
+
+    const switchToEditor = () => {
+      pausePrompter()
+      prompterView.classList.add('hidden')
+      editorView.classList.remove('hidden')
+      scriptInput.value = state.text
+      updateStats()
+    }
+
+    // Toggle Settings Drawer
+    const toggleSettings = () => {
+      state.settingsOpen = !state.settingsOpen
+      if (state.settingsOpen) {
+        settingsDrawer.classList.add('open')
+        settingsToggleBtn.classList.add('active')
+        clearTimeout(controlsHideTimeout)
+      } else {
+        settingsDrawer.classList.remove('open')
+        settingsToggleBtn.classList.remove('active')
+        scheduleControlsHide()
+      }
+    }
+
+    // Setup Event Listeners
+    const bindEvents = () => {
+      // Editor Input
+      scriptInput.addEventListener('input', () => {
+        state.text = scriptInput.value
+        updateStats()
+        saveState()
+      })
+
+      // Paste from clipboard
+      pasteBtn.addEventListener('click', async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            const clipboardText = await navigator.clipboard.readText()
+            if (clipboardText) {
+              scriptInput.value = (scriptInput.value ? scriptInput.value + '\n\n' : '') + clipboardText
+              state.text = scriptInput.value
+              updateStats()
+              saveState()
+              return
+            }
+          }
+        } catch (e) {
+          console.warn('Clipboard read failed', e)
+        }
+        const manual = prompt('Вставьте текст сюда:')
+        if (manual) {
+          scriptInput.value = (scriptInput.value ? scriptInput.value + '\n\n' : '') + manual
+          state.text = scriptInput.value
+          updateStats()
+          saveState()
+        }
+      })
+
+      // Clear input
+      clearBtn.addEventListener('click', () => {
+        if (!scriptInput.value.trim() || confirm('Очистить текст сценария?')) {
+          scriptInput.value = ''
+          state.text = ''
+          state.scrollPosition = 0
+          updateStats()
+          saveState()
+        }
+      })
+
+      // Launch Prompter
+      launchPrompterBtn.addEventListener('click', switchToPrompter)
+      backToEditorBtn.addEventListener('click', switchToEditor)
+      restartTopBtn.addEventListener('click', rewindToTop)
+      rewindBtn.addEventListener('click', rewindToTop)
+      togglePlayBtn.addEventListener('click', togglePlay)
+      settingsToggleBtn.addEventListener('click', toggleSettings)
+
+      // Range Adjusters: Speed
+      speedSlider.addEventListener('input', (e) => {
+        state.speed = parseInt(e.target.value, 10)
+        speedVal.textContent = state.speed
+        saveState()
+      })
+      speedMinus.addEventListener('click', () => {
+        state.speed = Math.max(10, state.speed - 5)
+        speedSlider.value = state.speed
+        speedVal.textContent = state.speed
+        saveState()
+      })
+      speedPlus.addEventListener('click', () => {
+        state.speed = Math.min(250, state.speed + 5)
+        speedSlider.value = state.speed
+        speedVal.textContent = state.speed
+        saveState()
+      })
+
+      // Range Adjusters: Font
+      fontSlider.addEventListener('input', (e) => {
+        state.fontSize = parseInt(e.target.value, 10)
+        fontVal.textContent = `${state.fontSize}px`
+        prompterContent.style.fontSize = `${state.fontSize}px`
+        saveState()
+      })
+      fontMinus.addEventListener('click', () => {
+        state.fontSize = Math.max(24, state.fontSize - 2)
+        fontSlider.value = state.fontSize
+        fontVal.textContent = `${state.fontSize}px`
+        prompterContent.style.fontSize = `${state.fontSize}px`
+        saveState()
+      })
+      fontPlus.addEventListener('click', () => {
+        state.fontSize = Math.min(96, state.fontSize + 2)
+        fontSlider.value = state.fontSize
+        fontVal.textContent = `${state.fontSize}px`
+        prompterContent.style.fontSize = `${state.fontSize}px`
+        saveState()
+      })
+
+      // Range Adjusters: Column Width
+      widthSlider.addEventListener('input', (e) => {
+        state.columnWidth = parseInt(e.target.value, 10)
+        widthVal.textContent = `${state.columnWidth}%`
+        prompterContent.style.width = `${state.columnWidth}%`
+        saveState()
+      })
+      widthMinus.addEventListener('click', () => {
+        state.columnWidth = Math.max(40, state.columnWidth - 2)
+        widthSlider.value = state.columnWidth
+        widthVal.textContent = `${state.columnWidth}%`
+        prompterContent.style.width = `${state.columnWidth}%`
+        saveState()
+      })
+      widthPlus.addEventListener('click', () => {
+        state.columnWidth = Math.min(98, state.columnWidth + 2)
+        widthSlider.value = state.columnWidth
+        widthVal.textContent = `${state.columnWidth}%`
+        prompterContent.style.width = `${state.columnWidth}%`
+        saveState()
+      })
+
+      // Countdown segments
+      countdownSelector.addEventListener('click', (e) => {
+        const btn = e.target.closest('.segment-btn')
+        if (!btn) return
+        const val = parseInt(btn.dataset.countdown, 10)
+        state.countdownSec = val
+        countdownSelector.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        saveState()
+      })
+
+      // Mirror toggle
+      mirrorBtn.addEventListener('click', () => {
+        state.isMirrored = !state.isMirrored
+        applyPrompterStyles()
+        saveState()
+      })
+
+      // Eye-line guide toggle
+      eyelineToggleBtn.addEventListener('click', () => {
+        state.showEyeline = !state.showEyeline
+        applyPrompterStyles()
+        saveState()
+      })
+
+      // Save scroll position on scroll
+      prompterViewport.addEventListener('scroll', () => {
+        if (!state.isPlaying) {
+          state.scrollPosition = Math.round(prompterViewport.scrollTop)
+          saveState()
+        }
+      }, { passive: true })
+    }
+
+    // Bootstrap
+    const init = () => {
+      loadState()
+      scriptInput.value = state.text
+      updateStats()
+      applyPrompterStyles()
+      bindEvents()
+    }
+
+    init()
+  </script>
+</body>
+</html>
